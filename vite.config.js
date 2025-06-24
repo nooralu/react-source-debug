@@ -61,6 +61,8 @@ export default defineConfig({
       babelConfig: {
         babelrc: false,
         configFile: false,
+        sourceMaps: true,
+        inputSourceMap: true,
         presets: ["@babel/preset-flow"],
         plugins: ["babel-plugin-syntax-hermes-parser"],
       }
