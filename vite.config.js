@@ -5,8 +5,57 @@ import babelPlugin from "vite-plugin-babel";
 
 const REACT_SOURCE_DIR = import.meta.env.REACT_SOURCE_DIR;
 
+const aliasList = [
+  ['react', 'react'],
+  ['react-dom', 'react-dom'],
+  ['scheduler', 'scheduler'],
+  ['shared', 'shared'],
+  ['react-dom-bindings', 'react-dom-bindings'],
+  ['react-reconciler', 'react-reconciler'],
+  ['react-client', 'react-client'],
+].flatMap(([pkg, dir]) => [
+  {
+    find: new RegExp(`^${pkg}$`),
+    replacement: path.resolve(REACT_SOURCE_DIR, `packages/${dir}`),
+  },
+  {
+    find: new RegExp(`^${pkg}/(.*)$`),
+    replacement: path.resolve(REACT_SOURCE_DIR, `packages/${dir}/$1`),
+  },
+]);
+
+
+/**
+ * 修复 fiber 配置文件错误
+ * 
+ * react 项目是在 rollup 打包时替换 /scripts/rollup/forks.js
+ */
+function replaceRelativeImportPlugin() {
+  return {
+    name: 'replace-relative-reactfiberconfig',
+    enforce: 'pre',
+    transform(code, id) {
+      if (
+        id.includes('react-reconciler') &&
+        id.endsWith('.js') &&
+        code.includes('./ReactFiberConfig')
+      ) {
+        return {
+          code: code.replace(
+            /(['"])\.\/ReactFiberConfig\1/g,
+            // 替换成 DOM 配置
+            "$1./forks/ReactFiberConfig.dom$1"
+          ),
+          map: null,
+        };
+      }
+    },
+  };
+}
+
 export default defineConfig({
   plugins: [
+    replaceRelativeImportPlugin(),
     babelPlugin({
       loader: "jsx",
       babelConfig: {
@@ -20,53 +69,7 @@ export default defineConfig({
   ],
   resolve: {
     preserveSymlinks: true,
-    alias: [
-      // import {} from 'react'
-      {
-        find: /^react$/,
-        replacement: path.resolve(REACT_SOURCE_DIR, './packages/react'),
-      },
-      // import {} from 'react/?';
-      {
-        find: /^react\/(.*)$/,
-        replacement: path.resolve(REACT_SOURCE_DIR, './packages/react/$1'),
-      },
-      // import {} from 'react-dom';
-      {
-        find: /^react-dom$/,
-        replacement: path.resolve(REACT_SOURCE_DIR, './packages/react-dom'),
-      },
-      // import {} from 'react-dom/?';
-      {
-        find: /^react-dom\/(.*)$/,
-        replacement: path.resolve(REACT_SOURCE_DIR, './packages/react-dom/$1'),
-      },
-      // import {} from 'scheduler';
-      {
-        find: /^scheduler$/,
-        replacement: path.resolve(REACT_SOURCE_DIR, './packages/scheduler'),
-      },
-      // import {} from 'shared/?';
-      {
-        find: /^shared\/(.*)$/,
-        replacement: path.resolve(REACT_SOURCE_DIR, './packages/shared/$1'),
-      },
-      // import {} from 'react-dom-bindings/?';
-      {
-        find: /^react-dom-bindings\/(.*)$/,
-        replacement: path.resolve(REACT_SOURCE_DIR, './packages/react-dom-bindings/$1'),
-      },
-      // import {} from 'react-reconciler/?';
-      {
-        find: /^react-reconciler\/(.*)$/,
-        replacement: path.resolve(REACT_SOURCE_DIR, './packages/react-reconciler/$1'),
-      },
-      // import {} from 'react-client/?';
-      {
-        find: /^react-client\/(.*)$/,
-        replacement: path.resolve(REACT_SOURCE_DIR, './packages/react-client/$1'),
-      },
-    ],
+    alias: aliasList,
   },
   optimizeDeps: {
     include: ["shared/ReactSharedInternals"],
